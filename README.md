@@ -301,18 +301,36 @@ We have added the following dependencies:
 
 We add a test:
 ```java
+@Testcontainers(disabledWithoutDocker = true)
 public class TaskListServiceTest {
 
     @Container
-    private GenericContainer postgres = new GenericContainer(DockerImageName.parse("postgres:12.12"));
+    private GenericContainer postgres = new GenericContainer(DockerImageName.parse("postgres:12.12"))
+            .withEnv("POSTGRES_USER", "postgres")
+            .withEnv("POSTGRES_PASSWORD", "postgres")
+            .withEnv("POSTGRES_DB", "tasklist")
+            .withClasspathResourceMapping("database/INIT.sql",
+                    "/docker-entrypoint-initdb.d/INIT.sql",
+                    BindMode.READ_ONLY)
+            .withExposedPorts(5432);
+
+//    @Container
+//    private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:12.12")
+//            .withUsername("postgres")
+//            .withPassword("postgres")
+//            .withInitScript("database/INIT.sql")
+//            .withDatabaseName("tasklist")
+//            .withExposedPorts(5432);
 
     private TaskListService service;
 
     @BeforeEach
     void setUp() {
-        final var dataSource = new HikariDataSource();
-        dataSource.setJdbcUrl("jdbc:postgresql://localhost:5432/taskList");
-        dataSource.setUsername("postgres");
+        final var dataSource = new PGSimpleDataSource();
+        dataSource.setServerName("localhost");
+        dataSource.setDatabaseName("tasklist");
+        dataSource.setUser("postgres");
+        dataSource.setPortNumbers(new int[]{postgres.getMappedPort(5432)});
         dataSource.setPassword("postgres");
 
         service = new TaskListService(dataSource);
@@ -325,4 +343,5 @@ public class TaskListServiceTest {
         assertNotNull(entry.getId());
     }
 }
+
 ```
